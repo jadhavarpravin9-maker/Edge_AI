@@ -1,0 +1,157 @@
+# 1. Data Preprocessing
+# 1.1 Preprocessing the Training Set
+# 1.2 Preprocessing the Testing Set
+
+# 2. Building the CNN
+# 2.1 Convolution (Feature Extraction)
+# 2.2 Pooling
+# 2.3 Flattening
+# 2.4 Fully Connected Layer
+# 2.5 Output Layer
+
+# 3. Training the CNN (Only if model does not exist)
+
+# 4. Predicting using CNN
+
+import os
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing import image
+
+# ===========================
+# Data Preprocessing
+# ===========================
+
+# Preprocessing the Training Set
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
+
+training_set = train_datagen.flow_from_directory(
+    '/home/caddcentre/Edge_AI/cnn_example/dataset/training_set',
+    target_size=(64, 64),
+    batch_size=32,
+    class_mode='binary'
+)
+
+# Preprocessing the Testing Set
+test_datagen = ImageDataGenerator(rescale=1./255)
+
+test_set = test_datagen.flow_from_directory(
+    '/home/caddcentre/Edge_AI/cnn_example/dataset/test_set',
+    target_size=(64, 64),
+    batch_size=32,
+    class_mode='binary'
+)
+
+# ===========================
+# Load or Train Model
+# ===========================
+
+MODEL_PATH = "/home/caddcentre/Edge_AI/cnn_example/models/cat_dog_cnn.keras" #Change this location/path
+
+if os.path.exists(MODEL_PATH):
+
+    print("Loading existing model...")
+    cnn = tf.keras.models.load_model(MODEL_PATH)
+
+else:
+
+    print("No saved model found.")
+    print("Training a new model...")
+
+    # Initialize CNN
+    cnn = tf.keras.models.Sequential()
+
+    # Convolution Layer 1
+    cnn.add(tf.keras.layers.Conv2D(
+        filters=32,
+        kernel_size=3,
+        activation='relu',
+        input_shape=(64, 64, 3)
+    ))
+
+    # Pooling
+    cnn.add(tf.keras.layers.MaxPool2D(pool_size=2, strides=2))
+
+    # Convolution Layer 2
+    cnn.add(tf.keras.layers.Conv2D(
+        filters=32,
+        kernel_size=3,
+        activation='relu'
+    ))
+
+    # Pooling
+    cnn.add(tf.keras.layers.MaxPool2D(pool_size=2, strides=2))
+
+    # Flatten
+    cnn.add(tf.keras.layers.Flatten())
+
+    # Fully Connected Layer
+    cnn.add(tf.keras.layers.Dense(
+        units=128,
+        activation='relu'
+    ))
+
+    # Output Layer
+    cnn.add(tf.keras.layers.Dense(
+        units=1,
+        activation='sigmoid'
+    ))
+
+    # Compile
+    cnn.compile(
+        optimizer='adam',
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
+
+    # Train
+    cnn.fit(
+        x=training_set,
+        validation_data=test_set,
+        epochs=25
+    )
+
+    # Save the trained model
+    cnn.save(MODEL_PATH)
+    print("Model trained and saved successfully!")
+
+# ===========================
+# Predict a Single Image
+# ===========================
+
+# Print class labels (optional)
+print("Class Indices:", training_set.class_indices)
+
+# Load image
+test_image = image.load_img(
+    '/home/caddcentre/Edge_AI/cnn_example/dataset/single_prediction/cat_or_dog_5.jpeg', #Change this location/path
+    target_size=(64, 64)
+)
+
+# Convert image to array
+test_image = image.img_to_array(test_image)
+
+# Normalize image
+test_image = test_image / 255.0
+
+# Add batch dimension
+test_image = np.expand_dims(test_image, axis=0)
+
+# Predict
+result = cnn.predict(test_image)
+
+print("Prediction Score:", result[0][0])
+
+# Get class names automatically
+class_indices = training_set.class_indices
+classes = {v: k for k, v in class_indices.items()}
+
+predicted_class = 1 if result[0][0] >= 0.5 else 0
+
+print("Predicted Class:", classes[predicted_class])
